@@ -1,4 +1,8 @@
 import { useState, useEffect } from "react";
+import { auth, db } from "./firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import Auth from "./Auth";
 
 const COLS = [
   { id: "todo", label: "TO DO", color: "#8993a4" },
@@ -34,29 +38,31 @@ const isOverdue = (d, s) => {
   return new Date(d + "T00:00:00") < t;
 };
 
-const STORE_KEY = "jira-kanban-tasks";
-const COUNTER_KEY = "jira-kanban-counter";
-
-async function loadData() {
+async function loadData(userId) {
   try {
-    const [tasksR, counterR] = await Promise.all([
-      window.storage.get(STORE_KEY),
-      window.storage.get(COUNTER_KEY),
-    ]);
-    return {
-      tasks: tasksR ? JSON.parse(tasksR.value) : [],
-      counter: counterR ? parseInt(counterR.value) : 0,
-    };
-  } catch { return { tasks: [], counter: 0 }; }
+    const docRef = doc(db, "users", userId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        tasks: data.tasks || [],
+        counter: data.counter || 0,
+      };
+    }
+    return { tasks: [], counter: 0 };
+  } catch (e) {
+    console.error("Load failed", e);
+    return { tasks: [], counter: 0 };
+  }
 }
 
-async function saveData(tasks, counter) {
+async function saveData(userId, tasks, counter) {
   try {
-    await Promise.all([
-      window.storage.set(STORE_KEY, JSON.stringify(tasks)),
-      window.storage.set(COUNTER_KEY, String(counter)),
-    ]);
-  } catch (e) { console.error("Save failed", e); }
+    const docRef = doc(db, "users", userId);
+    await setDoc(docRef, { tasks, counter, updatedAt: new Date().toISOString() });
+  } catch (e) {
+    console.error("Save failed", e);
+  }
 }
 
 function Modal({ open, onClose, children }) {
@@ -329,6 +335,8 @@ function Filters({ filter, setFilter, typeFilter, setTypeFilter, studies, studyF
 }
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [tasks, setTasks] = useState([]);
   const [counter, setCounter] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -339,15 +347,54 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState("");
   const [studyFilter, setStudyFilter] = useState("");
 
+  // Listen for auth state changes
   useEffect(() => {
-    loadData().then(({ tasks: t, counter: c }) => {
-      setTasks(t); setCounter(c); setLoaded(true);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
     });
+    return () => unsubscribe();
   }, []);
 
+  // Load data when user logs in
   useEffect(() => {
-    if (loaded) saveData(tasks, counter);
-  }, [tasks, counter, loaded]);
+    if (user) {
+      loadData(user.uid).then(({ tasks: t, counter: c }) => {
+        setTasks(t);
+        setCounter(c);
+        setLoaded(true);
+      });
+    }
+  }, [user]);
+
+  // Save data when tasks or counter change
+  useEffect(() => {
+    if (loaded && user) {
+      saveData(user.uid, tasks, counter);
+    }
+  }, [tasks, counter, loaded, user]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#1d2125", display: "flex", alignItems: "center", justifyContent: "center", color: "#8c9bab" }}>
+        Loading...
+      </div>
+    );
+  }
+
+  // Show auth screen if not logged in
+  if (!user) {
+    return <Auth />;
+  }
 
   const nextKey = `DASH-${counter + 1}`;
 
@@ -418,6 +465,14 @@ export default function App() {
                   <span><strong style={{ color: "#de350b" }}>{overdueCount}</strong> overdue</span>
                 </>
               )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "#8c9bab" }}>{user.email}</span>
+              <button onClick={handleLogout} style={{
+                padding: "6px 12px", borderRadius: 4, border: "1px solid #3b444c",
+                background: "transparent", color: "#8c9bab", cursor: "pointer",
+                fontSize: 12, fontWeight: 500, fontFamily: "inherit",
+              }}>Logout</button>
             </div>
             <button onClick={() => openAdd("todo")} style={{
               padding: "6px 14px", borderRadius: 4, border: "none", background: "#0065ff",
