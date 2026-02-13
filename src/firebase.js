@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDYcpHS4veok-QD31_4mqkNb3R9613ZhLV4",
+  apiKey: "AIzaSyDYcpHS4veok-QD3l4mqkNb3R9613ZhLV4",
   authDomain: "my-kanban-e7698.firebaseapp.com",
   projectId: "my-kanban-e7698",
   storageBucket: "my-kanban-e7698.firebasestorage.app",
