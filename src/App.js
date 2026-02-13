@@ -173,7 +173,7 @@ function TaskForm({ task, onSave, onCancel, onDelete, nextKey, defaultStatus }) 
   );
 }
 
-function Card({ task, onClick, onDragStart }) {
+function Card({ task, onClick }) {
   const t = TYPES[task.type] || TYPES.task;
   const p = PRIORITY[task.priority] || PRIORITY.medium;
   const overdue = isOverdue(task.dueDate, task.status);
@@ -182,7 +182,7 @@ function Card({ task, onClick, onDragStart }) {
   return (
     <div
       draggable
-      onDragStart={e => { e.dataTransfer.setData("taskId", task.id); onDragStart(task.id); }}
+      onDragStart={e => { e.dataTransfer.setData("taskId", task.id); }}
       onClick={() => onClick(task)}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -237,7 +237,7 @@ function Card({ task, onClick, onDragStart }) {
   );
 }
 
-function Column({ col, tasks, onAdd, onCardClick, onDrop, onDragStart }) {
+function Column({ col, tasks, onAdd, onCardClick, onDrop }) {
   const [dragOver, setDragOver] = useState(false);
 
   return (
@@ -247,23 +247,27 @@ function Column({ col, tasks, onAdd, onCardClick, onDrop, onDragStart }) {
       onDrop={e => { e.preventDefault(); setDragOver(false); const id = e.dataTransfer.getData("taskId"); if (id) onDrop(id, col.id); }}
       style={{
         flex: "1 1 260px", minWidth: 250, maxWidth: 340,
-        background: dragOver ? "#22272b" : "#161a1d",
+        background: dragOver ? col.color + "15" : col.color + "08",
         borderRadius: 6, display: "flex", flexDirection: "column",
         transition: "background 0.15s",
-        border: dragOver ? `1px dashed ${col.color}55` : "1px solid transparent",
+        border: dragOver ? `2px dashed ${col.color}88` : `1px solid ${col.color}30`,
+        borderTop: `3px solid ${col.color}`,
       }}
     >
       <div style={{ padding: "12px 14px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: "#8c9bab", letterSpacing: "0.8px" }}>{col.label}</span>
-          <span style={{ fontSize: 11, color: "#5a6778", fontWeight: 600 }}>{tasks.length}</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: col.color, letterSpacing: "0.8px" }}>{col.label}</span>
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 10,
+            background: col.color + "25", color: col.color,
+          }}>{tasks.length}</span>
         </div>
         <button onClick={() => onAdd(col.id)} style={{
-          background: "none", border: "none", color: "#5a6778", cursor: "pointer",
+          background: "none", border: "none", color: col.color + "aa", cursor: "pointer",
           fontSize: 18, lineHeight: 1, padding: "0 4px", borderRadius: 4,
         }}
-          onMouseEnter={e => e.currentTarget.style.color = "#c7d1db"}
-          onMouseLeave={e => e.currentTarget.style.color = "#5a6778"}
+          onMouseEnter={e => e.currentTarget.style.color = col.color}
+          onMouseLeave={e => e.currentTarget.style.color = col.color + "aa"}
         >+</button>
       </div>
       <div style={{ padding: "4px 8px 12px", display: "flex", flexDirection: "column", gap: 6, flex: 1, overflowY: "auto", minHeight: 80 }}>
@@ -271,7 +275,7 @@ function Column({ col, tasks, onAdd, onCardClick, onDrop, onDragStart }) {
           <div style={{ padding: 16, textAlign: "center", color: "#3b444c", fontSize: 12 }}>No items</div>
         )}
         {tasks.map(t => (
-          <Card key={t.id} task={t} onClick={onCardClick} onDragStart={onDragStart} />
+          <Card key={t.id} task={t} onClick={onCardClick} />
         ))}
       </div>
     </div>
@@ -331,7 +335,6 @@ export default function App() {
   const [modal, setModal] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [defaultStatus, setDefaultStatus] = useState("todo");
-  const [dragging, setDragging] = useState(null);
   const [filter, setFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [studyFilter, setStudyFilter] = useState("");
@@ -366,7 +369,6 @@ export default function App() {
 
   const handleDrop = (taskId, newStatus) => {
     setTasks(p => p.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    setDragging(null);
   };
 
   const openAdd = (status) => { setEditTask(null); setDefaultStatus(status); setModal(true); };
@@ -441,7 +443,7 @@ export default function App() {
             key={col.id} col={col}
             tasks={filtered.filter(t => t.status === col.id)}
             onAdd={openAdd} onCardClick={openEdit}
-            onDrop={handleDrop} onDragStart={setDragging}
+            onDrop={handleDrop}
           />
         ))}
       </div>
